@@ -1,27 +1,49 @@
-
 package org.firstinspires.ftc.teamcode;
-
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.robot.Robot;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.PwmControl;
 
+@Autonomous (name = "Dinoauto" +
+        "", group = "Linear OpMpde")
 
-@Autonomous (name = "Dinobyters", group = "Linear OpMpde")
+public class Dinoauto extends LinearOpMode {
 
-public class Dinoauto extends LinearOpMode{
+    // declare motors start
+    private DcMotor FLMotor;
+    private DcMotor FRMotor;
+    private DcMotor BLMotor;
+    private DcMotor BRMotor;
+    // declare motor end
 
     //tuning for velocity variables begin
     private double integralSum = 0;
-    private double Kp = 0;
-    private double Ki = 0;
-    private double Kd = 0;
+    private double Kp = 17;
+    private double Ki = 0.15;
+    private double Kd = 1;
     private double Kf = 0;
     //tuning Kf first is essential
     //tuning for velocity variables ends
+
+    // encoder for chamber slider start
+    double slider1Ticks = 1425;
+    double slider1Target;
+    // encoder defining for chamber slider end
+
+    // encoder for net slider start
+    double slider2Ticks = 1425;
+    double slider2Target;
+    // encoder defining for net slider end
+
+    // encoder for arm start
+    double armTicks = 860.32;
+    double armTarget;
+    // encoder for arm end
 
     ElapsedTime timer = new ElapsedTime();
     private double lastError = 0;
@@ -29,98 +51,78 @@ public class Dinoauto extends LinearOpMode{
     @Override
     public void runOpMode() throws InterruptedException {
 
-        // mapping hardware + initialize end
-
-        DcMotorEx frontLeftMotor = hardwareMap.get(DcMotorEx.class, "frontLeftMotor");
-        frontLeftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        frontLeftMotor.setDirection(DcMotorEx.Direction.FORWARD);
-        frontLeftMotor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
-
-        DcMotorEx frontRightMotor = hardwareMap.get(DcMotorEx.class, "frontLeftMotor");
-        frontRightMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        frontRightMotor.setDirection(DcMotorEx.Direction.REVERSE);
-        frontRightMotor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
-
-        DcMotorEx backRightMotor = hardwareMap.get(DcMotorEx.class, "frontLeftMotor");
-        frontRightMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        backRightMotor.setDirection(DcMotorEx.Direction.FORWARD);
-        backRightMotor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
-
-        DcMotorEx backLeftMotor = hardwareMap.get(DcMotorEx.class, "frontLeftMotor");
-        backLeftMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        backLeftMotor.setDirection(DcMotorEx.Direction.FORWARD);
-        backLeftMotor.setMode(DcMotorEx.RunMode.RUN_WITHOUT_ENCODER);
-
-        // mapping hardware + initialize end
+        // mapping wheel begins
+        FLMotor = (DcMotorEx) hardwareMap.dcMotor.get("FLMotor");
+        FRMotor = (DcMotorEx) hardwareMap.dcMotor.get("FRMotor");
+        BLMotor = (DcMotorEx) hardwareMap.dcMotor.get("BLMotor");
+        BRMotor = (DcMotorEx) hardwareMap.dcMotor.get("BRMotor");
+        // mapping wheel ends
 
         waitForStart();
 
-        if (opModeIsActive()){
-
-        int desiredPosition = 100;
-        backRightMotor.setTargetPosition(desiredPosition);
-        backRightMotor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
-
-        backLeftMotor.setTargetPosition(desiredPosition);
-        backLeftMotor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
-
-        frontLeftMotor.setTargetPosition(desiredPosition);
-        frontLeftMotor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
-
-        frontRightMotor.setTargetPosition(desiredPosition);
-        frontRightMotor.setMode(DcMotorEx.RunMode.RUN_TO_POSITION);
-
-        //drives forward X inches
+        // PID control beings
+        while (opModeIsActive()) {
+            double power = PIDControl(100, FLMotor.getCurrentPosition());
+            FLMotor.setPower(power);
+            FRMotor.setPower(power);
+            BLMotor.setPower(power);
+            BRMotor.setPower(power);
         }
+        // PID control end
 
-        }
+        // moves robot forwards two tiles
+        encoderMovement(539, 0, 0, .4);
+        sleep(500);
 
-    public static class Odometry {
-        // Constants
-        public final double ENCODER_WHEEL_DIAMETER = 1.37795;
+        // strafes robot one tile
+        encoderMovement(0, 290, 0, .4);
 
-        // Variables
-        private double xPos, yPos;
-        public double angle;
-        private double lastLeftEnc = 0, lastNormalEnc = 0;
+       // ADD SLIDER EXTEND AND CLAWS
 
-        public Odometry(double xPos, double yPos) {
-            this.xPos = xPos;
-            this.yPos = yPos;
-        }
+        // moves robot backwards two tiles
+        encoderMovement(-539, 0, 0, .4);
 
-        public void updatePosition(double l, double n, double ang) {
-            double dL = l - lastLeftEnc;
-            double dN = n - lastNormalEnc;
-            lastNormalEnc = n;
-            lastLeftEnc = l;
-
-            // ticks measured after
-            double ENCODER_TICKS_PER_REVOLUTION = 8154;
-            double ENCODER_WHEEL_CIRCUMFERENCE = Math.PI * 2.0 * (ENCODER_WHEEL_DIAMETER * 0.5);
-            double leftDist = -dL * ENCODER_WHEEL_CIRCUMFERENCE / ENCODER_TICKS_PER_REVOLUTION;
-            double dyR = leftDist;
-            double dxR = -dN * ENCODER_WHEEL_CIRCUMFERENCE / ENCODER_TICKS_PER_REVOLUTION;
-
-            //double cos = Math.cos((angle.degrees_to_radians(ang)));
-            //double sin = Math.sin((angle.degrees_to_radians(ang)));
-            //double dx = (dxR * sin) + (dyR * cos);
-            //double dy = (-dxR * cos) + (dyR * sin);
-
-            angle = ang;
-            //xPos += dx;
-           // yPos += dy;
-        }
-
-        public double getX() {
-            return xPos;
-        }
-
-        public double getY() {
-            return yPos;
-        }
-
+        // strafes robot backwards one tile
+        encoderMovement(0, -290, 0, .4);
+        sleep(500);
     }
+
+    // loop for autonomous begins
+    public void encoderMovement(int forward, int strafe, int turn, double power) {
+
+        FLMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        FRMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        BLMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        BRMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        // We have entered three parameters into our position, but really we are going to set all but one of them to zero
+        FLMotor.setTargetPosition(-forward - strafe + turn);
+        FRMotor.setTargetPosition(forward + strafe - turn);
+        BLMotor.setTargetPosition(-forward - strafe - turn);
+        BRMotor.setTargetPosition(+forward - strafe - turn);
+
+        // setting the power to whatever we input into the function
+        FLMotor.setPower(power);
+        FRMotor.setPower(power);
+        BLMotor.setPower(power);
+        BRMotor.setPower(power);
+
+        FLMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        FRMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        BLMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+        BRMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+        while (BLMotor.isBusy() || BRMotor.isBusy() || FLMotor.isBusy() || FRMotor.isBusy()) {
+            telemetry.addLine(String.valueOf(BLMotor.getCurrentPosition()));
+            telemetry.addLine(String.valueOf(BRMotor.getCurrentPosition()));
+            telemetry.addLine(String.valueOf(FLMotor.getCurrentPosition()));
+            telemetry.addLine(String.valueOf(FRMotor.getCurrentPosition()));
+            telemetry.update();
+        }
+
+        sleep(150);
+    }
+    // loop for autonomous ends
 
     public double PIDControl(double reference, double state) {
         double error = reference - state;
@@ -132,8 +134,5 @@ public class Dinoauto extends LinearOpMode{
 
         return (error * Kp) + (derivative * Kd) + (integralSum * Ki) + ( reference * Kf);
     }
+
 }
-
-
-
-

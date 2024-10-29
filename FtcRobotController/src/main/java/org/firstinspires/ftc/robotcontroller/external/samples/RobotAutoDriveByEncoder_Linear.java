@@ -122,7 +122,8 @@ public class RobotAutoDriveByEncoder_Linear extends LinearOpMode {
         telemetry.addData("Path", "Complete");
         telemetry.update();
         sleep(1000);  // pause to display final telemetry message.
-    }
+       // return 0;
+    }//
 
     /*
      *  Method to perform a relative move, based on encoder counts.
